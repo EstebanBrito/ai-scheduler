@@ -1,6 +1,7 @@
 # DATA STRUCTURES
 
 from data import courses, professors, groups
+from utils import genArrayFromRange
 
 # FUNCTIONS
 
@@ -16,19 +17,41 @@ def getNextAvailableTime(group, day, hour):
     # 
 
 
-def generateGroupOptions(group, day, hour):
+def generateHeuristic():
     pass
+
+def isProfessorAvaliable(professors, professor, day, hour, hours):
+    pass
+
+def getCourseProfessor(courses, course, group):
+    return courses[course]['professors'][group]
+
+def isCourseSessionScheduled(groups, group, day, course):
+    for sess_name, sess in groups[group]['schedule'][day].items():
+        scheduled_course = groups[group]['sessions'][sess_name]['course']
+        if course == scheduled_course: return True
+    return False
+
+def generateGroupOptions(groups, group, day, hour):
+    options = []
     # For every unassigned group session:
-        # Check professor is avaliable at that time [Professor]
-        # AND
+    for sess_name, sess in groups[group]['sessions'].items():
+        if sess['scheduled']: continue
         # Check <asignatura> has not been scheduled that day [GroupSchedule]
-            # Generate heuristic metrics
-            # Add to options
+        course = sess['course']
+        if isCourseSessionScheduled(groups, group, day, course): continue
+        # Check professor is avaliable at that time [Professor]
+        professor = getCourseProfessor(courses, course, group)
+        session_length = sess['length']
+        if not isProfessorAvaliable(professors, professor, day, hour, session_length): continue
+        # Generate heuristic metrics
+        metric = generateHeuristic()
+        options.add({'session': sess_name, 'metrics': metric})
     # Sort options
-    # Return options
+    return options
 
 
-def getNextGroup():
+def getNextGroup(groups):
     pass
     # For each group, compare most far behind:
         # If group.solved==True:
@@ -38,21 +61,26 @@ def getNextGroup():
         # Else continue
     # They can return null if no group is avaliable (all groups were solved)
 
+def hasGroupRemainingSessions(groups, group):
+    return len(groups[group]['sessions'])>0
 
-def mark(group, day, hour, session):
-    pass
-    # In groups, find group
-    # In group's schedule, find day
-    # In day, schedule session with no of hour = session.length
-    # Find professor and mark those hours as occupied
-    # If no sessions remain, make group.solved = True
+def markGroupAsSolved(groups, group):
+    groups[group]['solved'] = True
 
-def unmark(groups, day, hour, session):
-    pass
-    # In groups, find group
-    # In group's schedule, find day
-    # In day, remove session entry
-    # Find professor and mark those hours as free
+def markGroupAsUnsolved(groups, group):
+    groups[group]['solved'] = False
+
+def mark(groups, group, day, hour, session):
+    length = groups[group]['sessions'][session]['length']
+    hours = genArrayFromRange(hour, hour+length)
+    groups[group]['schedule'][day][session] = hours
+    groups[group]['sessions'][session]['scheduled'] = True
+    if not hasGroupRemainingSessions(groups, group): markGroupAsSolved(groups, group)
+
+def unmark(groups, group, day, hour, session):
+    del groups[group]['schedule'][day][session]
+    groups[group]['sessions'][session]['scheduled'] = False
+    markGroupAsUnsolved(groups, group)
 
 def schedule_session(group, day, hour):
     '''Tries recursively to schedule a session. Return True if a solutions has been found.
