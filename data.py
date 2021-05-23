@@ -1,12 +1,4 @@
-def generateWorkhours(start, end):
-    # Preconditions
-    if end <= start: raise Exception
-    # Process
-    hours = []
-    for x in range(start, end):
-        hours.append(x)
-        print(x)
-    return hours
+
 
 professors = {
     'Nora': {
@@ -78,7 +70,7 @@ courses = {
     'Programacion': {
         'semester': 1,
         'weekly_hours': 5,
-        'professor':{
+        'professors':{
             '1SA': 'Nora',
             '1SB': 'Nora',
             '1SC': 'Aida'
@@ -87,7 +79,7 @@ courses = {
     'Investigacion': {
         'semester': 1,
         'weekly_hours': 5,
-        'professor':{
+        'professors':{
             '1SA': 'Mauricio',
             '1SB': 'Aida',
             '1SC': 'Mauricio'
@@ -96,7 +88,7 @@ courses = {
     'Etica': {
         'semester': 1,
         'weekly_hours': 4,
-        'professor':{
+        'professors':{
             '1SA': 'Fatima',
             '1SB': 'Fatima',
             '1SC': 'Fatima'
@@ -114,7 +106,7 @@ courses = {
     'Administracion': {
         'semester': 1,
         'weekly_hours': 5,
-        'professor':{
+        'professors':{
             '1SA': 'Fatima',
             '1SB': 'Fatima',
             '1SC': 'Fatima'
@@ -123,7 +115,7 @@ courses = {
     'MatDiscretas': {
         'semester': 1,
         'weekly_hours': 5,
-        'professor':{
+        'professors':{
             '1SA': 'Karime',
             '1SB': 'Karime',
             '1SC': 'Karime'
@@ -133,30 +125,29 @@ courses = {
 
 groups = {
     '1SA': {
-        ''
-    }
-}
-'''
-groups: {
-    '6SA': {
-        'semester': 6,
+        'semester': 1,
         'sessions': {
-            'ProgSessionID': 2
-        },
-        'rem_sessions': {
-
+            'PROG-SES01': {
+                'course': 'Programacion',
+                'length': 3,
+                'scheduled': False
+            },
+            'INV-SES01': {
+                'course': 'Investigacion',
+                'length': 2,
+                'scheduled': False
+            },
+            'INV-SES01': {
+                'course': 'Investigacion',
+                'length': 2,
+                'scheduled': False
+            },
         },
         'schedule': {
-            'Monday': [
-                'ProgSessionID': [7, 8]
-            ]
-        }
-        'configs': {
-            'min_daily_class_hours': 4
-            'current_day': 3
-            'class_time_range': [7, 15]
+            1: {},
+            2: {}
         },
+        'configs': {},
         'solved': False
     }
 }
-'''
