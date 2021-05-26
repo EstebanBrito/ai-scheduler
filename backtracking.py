@@ -1,57 +1,57 @@
 # DATA STRUCTURES
 
 from data import courses, professors, groups
-from utils import genArrayFromRange
+from utils import gen_array_from_range
 
 # FUNCTIONS
 
-def isChangePermitted():
+def is_change_permitted():
     pass
     # check min hours have been scheduled ()
     # check max number of changes is not reached (only two are permitted)
 
 
-def getNextAvailableTime(group, day, hour):
+def get_next_available_time(group, day, hour):
     pass
     # If two hours remaining, 
     # 
 
 
-def generateHeuristic():
+def generate_heuristic():
     pass
 
-def isProfessorAvaliable(professors, professor, day, hour, hours):
+def is_professor_avaliable(professors, professor, day, hour, hours):
     pass
 
-def getCourseProfessor(courses, course, group):
+def get_course_professor(courses, course, group):
     return courses[course]['professors'][group]
 
-def isCourseSessionScheduled(groups, group, day, course):
+def is_course_session_scheduled(groups, group, day, course):
     for sess_name, sess in groups[group]['schedule'][day].items():
         scheduled_course = groups[group]['sessions'][sess_name]['course']
         if course == scheduled_course: return True
     return False
 
-def generateGroupOptions(groups, group, day, hour):
+def generate_group_options(groups, group, day, hour):
     options = []
     # For every unassigned group session:
     for sess_name, sess in groups[group]['sessions'].items():
         if sess['scheduled']: continue
         # Check <asignatura> has not been scheduled that day [GroupSchedule]
         course = sess['course']
-        if isCourseSessionScheduled(groups, group, day, course): continue
+        if is_course_session_scheduled(groups, group, day, course): continue
         # Check professor is avaliable at that time [Professor]
-        professor = getCourseProfessor(courses, course, group)
+        professor = get_course_professor(courses, course, group)
         session_length = sess['length']
-        if not isProfessorAvaliable(professors, professor, day, hour, session_length): continue
+        if not is_professor_avaliable(professors, professor, day, hour, session_length): continue
         # Generate heuristic metrics
-        metric = generateHeuristic()
+        metric = generate_heuristic()
         options.add({'session': sess_name, 'metrics': metric})
     # Sort options
     return options
 
 
-def getNextGroup(groups):
+def get_next_group(groups):
     pass
     # For each group, compare most far behind:
         # If group.solved==True:
@@ -61,44 +61,44 @@ def getNextGroup(groups):
         # Else continue
     # They can return null if no group is avaliable (all groups were solved)
 
-def hasGroupRemainingSessions(groups, group):
+def has_group_remaining_sessions(groups, group):
     return len(groups[group]['sessions'])>0
 
-def markGroupAsSolved(groups, group):
+def mark_group_as_solved(groups, group):
     groups[group]['solved'] = True
 
-def markGroupAsUnsolved(groups, group):
+def mark_group_as_unsolved(groups, group):
     groups[group]['solved'] = False
 
 def mark(groups, group, day, hour, session):
     length = groups[group]['sessions'][session]['length']
-    hours = genArrayFromRange(hour, hour+length)
+    hours = gen_array_from_range(hour, hour+length)
     groups[group]['schedule'][day][session] = hours
     groups[group]['sessions'][session]['scheduled'] = True
-    if not hasGroupRemainingSessions(groups, group): markGroupAsSolved(groups, group)
+    if not has_group_remaining_sessions(groups, group): mark_group_as_solved(groups, group)
 
 def unmark(groups, group, day, hour, session):
     del groups[group]['schedule'][day][session]
     groups[group]['sessions'][session]['scheduled'] = False
-    markGroupAsUnsolved(groups, group)
+    mark_group_as_unsolved(groups, group)
 
 def schedule_session(group, day, hour):
-    '''Tries recursively to schedule a session. Return True if a solutions has been found.
+    '''Tries recursively to schedule a session. Return True if a solution has been found.
     Return False to trigger backtracking'''
 
-    options = generateGroupOptions(group, day, hour)
+    options = generate_group_options(group, day, hour)
     # Change hours if sessions are not avaliable at that time
     while len(options)==0:
-        if isChangePermitted(group):
-            day, hour = getNextAvailableTime(group, day, hour)
-            options = generateGroupOptions(group, day, hour)
+        if is_change_permitted(group):
+            day, hour = get_next_available_time(group, day, hour)
+            options = generate_group_options(group, day, hour)
         else: return False
     # Try to generate a solution by scheduling any of the sessions
     for session in options:
         mark(group, day, hour, session)
-        next_group, next_day, next_hour = getNextGroup()
-        if group==None: return True
-        if schedule_session(next_group, next_day, next_hour): return True
+        next_group, next_day, next_hour = get_next_group()
+        if group==None: return True # All groups have been schedules
+        if schedule_session(next_group, next_day, next_hour): return True # Try scheduling next group
         unmark(group, day, hour, session)
     return False
             
