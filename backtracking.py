@@ -10,10 +10,17 @@ def is_change_permitted():
     # check min hours have been scheduled ()
     # check max number of changes is not reached (only two are permitted)
 
-def get_next_available_time(group, day, hour):
-    pass
-    # If two hours remaining, 
-    # 
+def get_next_available_time(groups, group, day, hour):
+    top_hour = groups[group]['hour_range'][day][1]
+    rem_hours = top_hour - (hour + 1)
+    if rem_hours >= 2:
+        return day, hour + 1
+    else:
+        if day<5: # If day is not Friday
+            bottom_hour = groups[group]['hour_range'][day+1][0]
+            return day+1, bottom_hour
+        else:
+            return None, None
 
 
 def gen_heuristic(professors, groups, professor, group, day, hour):
