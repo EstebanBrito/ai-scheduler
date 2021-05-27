@@ -10,7 +10,6 @@ def is_change_permitted():
     # check min hours have been scheduled ()
     # check max number of changes is not reached (only two are permitted)
 
-
 def get_next_available_time(group, day, hour):
     pass
     # If two hours remaining, 
@@ -51,15 +50,30 @@ def generate_group_options(groups, group, day, hour):
     return options
 
 
+def gen_hour_of_week(day, hour):
+    return (day-1)*24 + hour
+
 def get_next_group(groups):
-    pass
-    # For each group, compare most far behind:
-        # If group.solved==True:
-            # If curr_day > day:
-                # If curr_hour > hour: we got new most far behind
-            # Else, fuck off
-        # Else continue
-    # They can return null if no group is avaliable (all groups were solved)
+    '''Given a collections of groups, find the most delayed
+    which still has session to schedule. Returns that group's
+    name and the day and hour its next session should be scheduled'''
+    next_group = None
+    next_group_day = 8
+    next_group_hour = 0
+    next_group_hour_of_week = gen_hour_of_week(8, 0)
+    # For each group...
+    for group_name, group in groups.items():
+        if group['solved']: continue # Ignore solved groups
+        # Calc time and compare with current most delayed group
+        day, hour = group['current_time']['day'], group['current_time']['hour']
+        hour_of_week = gen_hour_of_week(day, hour)
+        if hour_of_week < next_group_hour_of_week:
+            next_group = group_name
+            next_group_day = day
+            next_group_hour = hour
+            next_group_hour_of_week = hour_of_week
+    return next_group, next_group_day, next_group_hour
+
 
 def has_group_remaining_sessions(groups, group):
     return len(groups[group]['sessions'])>0
@@ -73,14 +87,23 @@ def mark_group_as_unsolved(groups, group):
 def mark(groups, group, day, hour, session):
     length = groups[group]['sessions'][session]['length']
     hours = gen_array_from_range(hour, hour+length)
+    # Schedule session
     groups[group]['schedule'][day][session] = hours
     groups[group]['sessions'][session]['scheduled'] = True
+    # Change group's current time TODO
+    groups[group]['current_hour'] = [day, hour+length]
+    # Verify if groups scheduling is complete
     if not has_group_remaining_sessions(groups, group): mark_group_as_solved(groups, group)
 
 def unmark(groups, group, day, hour, session):
+    # Delete session scheduled
     del groups[group]['schedule'][day][session]
     groups[group]['sessions'][session]['scheduled'] = False
+    # Change the group's current time TODO
+    groups[group]['current_hour'] = [day, hour]
+    # Scheduling for the group is not complete
     mark_group_as_unsolved(groups, group)
+
 
 def schedule_session(group, day, hour):
     '''Tries recursively to schedule a session. Return True if a solution has been found.

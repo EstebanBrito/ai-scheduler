@@ -147,6 +147,10 @@ groups = {
             1: {},
             2: {}
         },
+        'current_time': {
+            'day': 1,
+            'hour': 7
+        },
         'configs': {},
         'solved': False
     }
