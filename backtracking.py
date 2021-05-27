@@ -16,11 +16,19 @@ def get_next_available_time(group, day, hour):
     # 
 
 
-def generate_heuristic():
-    pass
+def gen_heuristic(professors, groups, professor, group, day, hour):
+    prof_top_hour = professors[professor]['workhours'][day][1]
+    group_top_hour = group[group]['hour_range'][day][1]
+    # Calc. time between current hour and early top hour
+    metric = group_top_hour-hour if group_top_hour < prof_top_hour else prof_top_hour-hour
+    return metric
 
-def is_professor_avaliable(professors, professor, day, hour, hours):
-    pass
+def is_professor_avaliable(professors, professor, day, hour, length):
+    hours = gen_array_from_range(hour, hour+length)
+    for hour in hours:
+        if not hour in professors[professor]['av_workhours'][day]:
+            return False
+    return True
 
 def get_course_professor(courses, course, group):
     return courses[course]['professors'][group]
@@ -44,7 +52,7 @@ def generate_group_options(groups, group, day, hour):
         session_length = sess['length']
         if not is_professor_avaliable(professors, professor, day, hour, session_length): continue
         # Generate heuristic metrics
-        metric = generate_heuristic()
+        metric = gen_heuristic(professors, groups, professor, group, day, hour)
         options.add({'session': sess_name, 'metrics': metric})
     # Sort options
     return options
@@ -117,7 +125,8 @@ def schedule_session(group, day, hour):
             options = generate_group_options(group, day, hour)
         else: return False
     # Try to generate a solution by scheduling any of the sessions
-    for session in options:
+    for opt in options:
+        session = opt.session
         mark(group, day, hour, session)
         next_group, next_day, next_hour = get_next_group()
         if group==None: return True # All groups have been schedules
