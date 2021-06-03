@@ -10,13 +10,31 @@ def is_change_permitted():
     # check min hours have been scheduled ()
     # check max number of changes is not reached (only two are permitted)
 
-def get_next_available_time(groups, group, day, hour):
+def calc_idle_hours(groups, group, day):
+    idle_hours = 0
+    prev_end_hour = None
+    for session_name, session_hours in groups[group]['schedule'][day]:
+        if (prev_end_hour):
+            idle_hours += session_hours[0] - prev_end_hour
+            prev_end_hour = session_hours[1]
+    return idle_hours
+
+def get_next_available_time(config, groups, group, day, hour):
+    # Calc. remaining hours of class for this group if we skip one hour of class
     top_hour = groups[group]['hour_range'][day][1]
     rem_hours = top_hour - (hour + 1)
+    # If rem. hours are enough to schedule a session (i.e 2 hours), try to skip one hour...
     if rem_hours >= 2:
+        # ...unless you have already skipped many hours (> max_idle_hours)
+        idle_hours = calc_idle_hours(groups, group, day)
+        if idle_hours >= config['max_daily_idle_hours']: return None, None
+        # If conditions are met, skip one hour today and return the next hour
         return day, hour + 1
     else:
-        if day<5: # If day is not Friday
+        if day < 5: # If this day is not the last work day of the week (i.e. Friday), try to jump to next day...
+            # ...unless you have not meet the required daily hours of class
+            if groups[group]['class_hours'][day] < groups[group]['min_daily_class_hours']: return None, None
+            # If conditions are met, return first avaliable hour of the next day
             bottom_hour = groups[group]['hour_range'][day+1][0]
             return day+1, bottom_hour
         else:
@@ -41,24 +59,27 @@ def get_course_professor(courses, course, group):
     return courses[course]['professors'][group]
 
 def is_course_session_scheduled(groups, group, day, course):
-    for sess_name, sess in groups[group]['schedule'][day].items():
+    for sess_name, sess_hours in groups[group]['schedule'][day]:
         scheduled_course = groups[group]['sessions'][sess_name]['course']
         if course == scheduled_course: return True
     return False
+
+def get_session_course(groups, group, session):
+    return groups[group]['sessions'][session]['course']
 
 def generate_group_options(groups, group, day, hour):
     options = []
     # For every unassigned group session:
     for sess_name, sess in groups[group]['sessions'].items():
         if sess['scheduled']: continue
-        # Check <asignatura> has not been scheduled that day [GroupSchedule]
+        # Check course session has not been scheduled that day
         course = sess['course']
         if is_course_session_scheduled(groups, group, day, course): continue
-        # Check professor is avaliable at that time [Professor]
+        # Check professor is avaliable to give a class
         professor = get_course_professor(courses, course, group)
         session_length = sess['length']
         if not is_professor_avaliable(professors, professor, day, hour, session_length): continue
-        # Generate heuristic metrics
+        # If all is OK, generate heuristic metrics
         metric = gen_heuristic(professors, groups, professor, group, day, hour)
         options.add({'session': sess_name, 'metrics': metric})
     # Sort options
@@ -66,11 +87,11 @@ def generate_group_options(groups, group, day, hour):
 
 
 def gen_hour_of_week(day, hour):
-    return (day-1)*24 + hour
+    return day*24 + hour
 
 def get_next_group(groups):
-    '''Given a collections of groups, find the most delayed
-    which still has session to schedule. Returns that group's
+    '''Given a collection of groups, find the most delayed one
+    which still has sessions to schedule. Returns that group's
     name and the day and hour its next session should be scheduled'''
     next_group = None
     next_group_day = 8
@@ -91,7 +112,9 @@ def get_next_group(groups):
 
 
 def has_group_remaining_sessions(groups, group):
-    return len(groups[group]['sessions'])>0
+    for sess_name, sess in groups[group]['sessions'].items():
+        if sess['scheduled']: return True
+    return False
 
 def mark_group_as_solved(groups, group):
     groups[group]['solved'] = True
@@ -99,23 +122,38 @@ def mark_group_as_solved(groups, group):
 def mark_group_as_unsolved(groups, group):
     groups[group]['solved'] = False
 
+def remove_professor_available_hours(professors, professor, day, hour, length):
+    pass
+
+def restitute_professor_available_hours(professors, professor, day, hour, length):
+    pass
+
 def mark(groups, group, day, hour, session):
     length = groups[group]['sessions'][session]['length']
     hours = gen_array_from_range(hour, hour+length)
     # Schedule session
     groups[group]['schedule'][day][session] = hours
     groups[group]['sessions'][session]['scheduled'] = True
-    # Change group's current time TODO
+    # Change group's current time
     groups[group]['current_hour'] = [day, hour+length]
-    # Verify if groups scheduling is complete
+    # Change group's class hours and min. daily class hours
+    groups[group]['class_hours'][day] += length
+    groups[group]['min_daily_class_hours'] -= length
+    # Change professor's avaliable hours
+    course = get_session_course(groups, group, session)
+    professor = get_course_professor(courses, course, group)
+    remove_professor_available_hours(professor, professor, day, hour, length)
+    # Verify if group's scheduling is complete
     if not has_group_remaining_sessions(groups, group): mark_group_as_solved(groups, group)
 
 def unmark(groups, group, day, hour, session):
     # Delete session scheduled
     del groups[group]['schedule'][day][session]
     groups[group]['sessions'][session]['scheduled'] = False
-    # Change the group's current time TODO
+    # Change the group's current time
     groups[group]['current_hour'] = [day, hour]
+    # Change group's class hours and min. daily class hours TODO
+    # Change professor's avaliable hours TODO
     # Scheduling for the group is not complete
     mark_group_as_unsolved(groups, group)
 
