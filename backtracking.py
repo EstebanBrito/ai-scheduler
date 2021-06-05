@@ -208,27 +208,26 @@ def unmark(professors, courses, groups, group, day, hour, session):
     # Scheduling for the group is not complete
     mark_group_as_unsolved(groups, group)
 
+def solve(professors, courses, groups, config):
+    def schedule_session(group, day, hour):
+        '''Tries recursively to schedule a session. Return True if a solution has been found.
+        Return False to trigger backtracking'''
 
-def schedule_session(group, day, hour):
-    '''Tries recursively to schedule a session. Return True if a solution has been found.
-    Return False to trigger backtracking'''
-
-    options = generate_group_options(group, day, hour)
-    # Change hours if sessions are not avaliable at that time
-    while len(options)==0:
-        day, hour = get_next_available_time(group, day, hour)
-        # If next time available is None, you cannot change hours and got to trigger backtracking
-        if day==None or hour==None: return False
         options = generate_group_options(group, day, hour)
-    # Try to generate a solution by scheduling any of the sessions
-    for opt in options:
-        session = opt.session
-        mark(group, day, hour, session)
-        next_group, next_day, next_hour = get_next_group()
-        if group==None: return True # All groups have been scheduled
-        if schedule_session(next_group, next_day, next_hour): return True # Try scheduling next group
-        unmark(group, day, hour, session)
-    return False
-            
-# No options cuz only one hour rem, Deal with it
-# What when daily hours have been completed?
+        # Change hours if sessions are not avaliable at that time
+        while len(options)==0:
+            day, hour = get_next_available_time(group, day, hour)
+            # If next time available is None, you cannot change hours and got to trigger backtracking
+            if day==None or hour==None: return False
+            options = generate_group_options(group, day, hour)
+        # Try to generate a solution by scheduling any of the sessions
+        for opt in options:
+            session = opt.session
+            mark(professors, courses, groups, group, day, hour, session)
+            next_group, next_day, next_hour = get_next_group()
+            if next_group==None: return True # All groups have been scheduled
+            if schedule_session(next_group, next_day, next_hour): return True # Try scheduling next group
+            unmark(professors, courses, groups, group, day, hour, session)
+        return False
+    return schedule_session
+
