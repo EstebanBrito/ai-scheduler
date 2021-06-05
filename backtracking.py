@@ -96,9 +96,9 @@ def get_next_group(groups):
     which still has sessions to schedule. Returns that group's
     name and the day and hour its next session should be scheduled'''
     next_group = None
-    next_group_day = 8
+    next_group_day = 7
     next_group_hour = 0
-    next_group_hour_of_week = gen_hour_of_week(8, 0)
+    next_group_hour_of_week = gen_hour_of_week(7, 0)
     # For each group...
     for group_name, group in groups.items():
         if group['solved']: continue # Ignore solved groups

@@ -61,7 +61,7 @@ groups = {
             []
         ],
         'current_time': {
-            'day': 1,
+            'day': 0,
             'hour': 7
         },
         'hour_range': [7,15],
