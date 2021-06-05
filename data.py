@@ -1,7 +1,9 @@
+professor_ds = {}
 
-
-professors = {
-    'Karime': {
+'''Should be like...
+professors = [
+    {
+        'id': 'KARIME-UUID',
         'workhours': [
             (7,14),
             (7,14),
@@ -17,30 +19,40 @@ professors = {
             [10,11,12,13,14]
         ]
     }
-}
+]
+'''
 
-courses = {
-    'Programacion': {
+courses_ds = {}
+
+'''Should be like...
+courses = [
+    {
+        'id': 'PROGRAMACION-UUID',
         'semester': 1,
         'weekly_hours': 5,
-        'professors':{
-            '1SA': 'Nora',
-            '1SB': 'Nora',
-            '1SC': 'Nora'
-        }
+        'classrooms': [
+            { 'group': '1SA', 'professor': 'NORA-ID' },
+            { 'group': '1SB', 'professor': 'NORA-ID' },
+            { 'group': '1SC', 'professor': 'NORA-ID' },
+        ]
     }
-}
+]
+'''
 
+groups_ds = {}
+
+'''Should be like...
 groups = {
     '1SA': {
         'semester': 1,
-        'sessions': {
-            'PROG-SES01': {
+        'sessions': [
+            {
+                'id': 'PROG-SES01',
                 'course': 'Programacion',
                 'length': 3,
                 'scheduled': True
             }
-        },
+        ],
         'schedule': [
             [ ['PROG-SES01', [7,10]] ],
             [],
@@ -54,13 +66,18 @@ groups = {
         },
         'hour_range': [7,15],
         'class_hours': [0,0,0,0,0],
-        'weekly_class_hours': 25,
-        'min_daily_class_hours': 0,
+        'weekly_class_hours': 31,
+        'min_daily_class_hours': [7,6,6,6,6],
         'solved': False
     }
 }
+'''
 
-config: {
-    'school_workhours': (7,20),
+config_ds = {}
+
+'''Should be like...
+config = {
+    'school_workhours': [7,20],
     'max_daily_idle_hours': 2
 }
+'''
