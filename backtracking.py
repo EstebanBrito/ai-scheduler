@@ -69,14 +69,14 @@ def get_next_available_time(config, groups, group_idx, day, hour):
     if rem_hours >= 2 and idle_hours <= config['max_daily_idle_hours']:
         # ...try to schedule session next hour
         return day, hour + 1
+    # Else, if this day is not the last work day of the week (i.e. Friday)...
+    elif day < FRIDAY: 
+        # ...try to schedule session next day
+        bottom_hour = groups[group_idx]['hour_range'][0]
+        return day+1, bottom_hour
+    # Otherwise, is impossible to move scheduling time. Backtracking is required.
     else:
-        # If this day is not the last work day of the week (i.e. Friday)...
-        if day < FRIDAY: 
-            # ...try to schedule session next day
-            bottom_hour = groups[group_idx]['hour_range'][0]
-            return day+1, bottom_hour
-        else:
-            return None, None
+        return None, None
 
 # gen_group_options() auxiliary functions
 
