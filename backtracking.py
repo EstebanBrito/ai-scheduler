@@ -82,12 +82,12 @@ def get_next_available_time(config, groups, group_idx, day, hour):
 
 def find_new_option_insert_index(options, metric):
     '''Given a new option, find where to insert it so options are in
-    descendant order according to their metrics'''
+    ASCENDING order according to their metrics'''
     # Case: no options exist yet
     if len(options) == 0: return 0
     # Case: new options belongs between existing options
     for curr_idx, curr_opt in enumerate(options):
-        if metric > curr_opt['metric']:
+        if metric < curr_opt['metric']:
             return curr_idx
     # Case: new options belong at the end of existing options
     return len(options)
@@ -146,7 +146,7 @@ def generate_group_options(professors, courses, groups, group_idx, day, hour):
         if not is_professor_avaliable(professors, professor_idx, day, hour, session_length): continue
         # If all is OK, generate heuristic metric...
         metric = gen_heuristic(professors, groups, professor_idx, group_idx, day, hour)
-        # ...and then insert new option so options are in descendant order according to heuristic metric
+        # ...and then insert new option so options are in ASCENDING order according to heuristic metric
         option_idx = find_new_option_insert_index(options, metric)
         options.insert(option_idx, {'session': curr_sess['id'], 'metric': metric})
     # Return options
@@ -177,6 +177,7 @@ def get_next_group(groups):
             next_group_hour_of_week = hour_of_week
     return next_group, next_group_day, next_group_hour
 
+# mark() and unmark() auxiliary functions
 
 def has_group_remaining_sessions(groups, group):
     for sess_name, sess in groups[group]['sessions'].items():
@@ -273,6 +274,8 @@ def unmark(professors, courses, groups, group, day, hour, session):
     # Scheduling for the group is not complete
     mark_group_as_unsolved(groups, group)
 
+# Main functions
+
 def solve(professors, courses, groups, config):
     def schedule_session(group_idx, day, hour):
         '''Tries recursively to schedule a session. Return True if a solution has been found.
@@ -286,12 +289,13 @@ def solve(professors, courses, groups, config):
             options = generate_group_options(professors, courses, groups, group_idx, day, hour)
         # Try to generate a solution by scheduling any of the sessions
         for opt in options:
-            session = opt.session
-            mark(professors, courses, groups, group, day, hour, session)
-            next_group, next_day, next_hour = get_next_group()
-            if next_group==None: return True # All groups have been scheduled
-            if schedule_session(next_group, next_day, next_hour): return True # Try scheduling next group
-            unmark(professors, courses, groups, group, day, hour, session)
+            session_id = opt['session']
+            mark(professors, courses, groups, group_idx, day, hour, session_id)
+            next_group_idx, next_day, next_hour = get_next_group(groups)
+            if next_group_idx==None: return True # All groups have been scheduled, a solution has been found
+            if schedule_session(next_group_idx, next_day, next_hour): return True # Try scheduling next group
+            unmark(professors, courses, groups, group_idx, day, hour, session_id)
+        # If options did not provide solution, trigger backtracking
         return False
     return schedule_session
 
