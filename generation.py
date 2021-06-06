@@ -37,7 +37,7 @@ def gen_group_weekly_hours(group, group_courses):
 
 def gen_group_sessions(group, group_courses):
     group['sessions'] = []
-    curr_session_id = 1
+    curr_session_id = 100
     for course in group_courses:
         # Hardcoded rules for no. of sessions and their length
         session_lengths = []

@@ -12,6 +12,31 @@ FRIDAY = 4
 
 # FUNCTIONS
 
+# General auxiliary functions
+
+def get_professor_idx(professors, professor_id):
+    '''Given his/her id, return index of professor within professors data structure'''
+    for curr_idx, curr_prof in enumerate(professors):
+        if curr_prof['id'] == professor_id: return curr_idx
+    return None
+
+def get_course_idx(courses, course_id):
+    '''Given its id, return index of course within courses data structure'''
+    for curr_idx, curr_course in enumerate(courses):
+        if curr_course['id'] == course_id: return curr_idx
+    return None
+
+def get_group_idx(groups, group_id):
+    '''Given its id, return index of group within groups data structure'''
+    for curr_idx, curr_group in enumerate(groups):
+        if curr_group['id'] == group_id: return curr_idx
+    return None
+
+def get_session_course(groups, group_idx, session):
+    return groups[group_idx]['sessions'][session]['course']
+
+# get_next_avaliable_time() auxiliary functions
+
 def calc_idle_hours(groups, group, day):
     idle_hours = 0
     prev_end_hour = None
@@ -42,49 +67,78 @@ def get_next_available_time(config, groups, group, day, hour):
         else:
             return None, None
 
+# gen_group_options() auxiliary functions
 
-def gen_heuristic(professors, groups, professor, group, day, hour):
-    prof_top_hour = professors[professor]['workhours'][day][1]
-    group_top_hour = group[group]['hour_range'][day][1]
-    # Calc. time between current hour and early top hour
-    metric = group_top_hour-hour if group_top_hour < prof_top_hour else prof_top_hour-hour
+def find_new_option_insert_index(options, metric):
+    '''Given a new option, find where to insert it so options are in
+    descendant order according to their metrics'''
+    # Case: no options exist yet
+    if len(options) == 0: return 0
+    # Case: new options belongs between existing options
+    for curr_idx, curr_opt in enumerate(options):
+        if metric > curr_opt['metric']:
+            return curr_idx
+    # Case: new options belong at the end of existing options
+    return len(options)
+
+def gen_heuristic(professors, groups, professor_idx, group_idx, day, hour):
+    '''Calc. the time (in hours) a professor can impart classes to a group, 
+    in a specific day and after the hour specified'''
+    prof_top_hour = professors[professor_idx]['workhours'][day][1]
+    group_top_hour = groups[group_idx]['hour_range'][1]
+    # Calc. time between current hour and earlier (smaller) top hour
+    earlier_top_hour = min([prof_top_hour, group_top_hour])
+    metric = earlier_top_hour - hour
     return metric
 
-def is_professor_avaliable(professors, professor, day, hour, length):
+def is_professor_avaliable(professors, professor_idx, day, hour, length):
+    '''Returns if a professor is avalaible at that day and hour, and during that many time'''
     hours = gen_array_from_range(hour, hour+length)
     for hour in hours:
-        if not hour in professors[professor]['av_workhours'][day]:
-            return False
+        if not hour in professors[professor_idx]['av_workhours'][day]: return False
     return True
 
-def get_course_professor(courses, course, group):
-    return courses[course]['professors'][group]
+def get_course_professor(courses, course_idx, group_id):
+    '''Returns id of the professor teaching a course to a specific group'''
+    # Find groups inside course's classrooms
+    for curr_classroom in courses[course_idx]['classrooms']:
+        if curr_classroom['group'] == group_id:
+            # Return found professor
+            return curr_classroom['professor']
+        break
+    return None # For consistency
 
-def is_course_session_scheduled(groups, group, day, course):
-    for sess_name, sess_hours in groups[group]['schedule'][day]:
-        scheduled_course = groups[group]['sessions'][sess_name]['course']
-        if course == scheduled_course: return True
+def is_course_session_scheduled(groups, group_idx, day, course_id):
+    '''Return whether a course session has been scheduled for a group in a specific day'''
+    for sess in groups[group_idx]['schedule'][day]:
+        if sess['course'] == course_id: return True
     return False
 
-def get_session_course(groups, group, session):
-    return groups[group]['sessions'][session]['course']
-
-def generate_group_options(professors, courses, groups, group, day, hour):
+def generate_group_options(professors, courses, groups, group_idx, day, hour):
+    '''Generates the sessions a group can take that day at that hour, taking in
+    account that professors teaching those sessions are avaliable at that time
+    and only one session of a course can be scheduled for a group that day'''
     options = []
     # For every unassigned group session:
-    for sess_name, sess in groups[group]['sessions'].items():
-        if sess['scheduled']: continue
-        # Check course session has not been scheduled that day
-        course = sess['course']
-        if is_course_session_scheduled(groups, group, day, course): continue
-        # Check professor is avaliable to give a class
-        professor = get_course_professor(courses, course, group)
-        session_length = sess['length']
-        if not is_professor_avaliable(professors, professor, day, hour, session_length): continue
-        # If all is OK, generate heuristic metrics
-        metric = gen_heuristic(professors, groups, professor, group, day, hour)
-        options.add({'session': sess_name, 'metrics': metric})
-    # Sort options
+    for curr_sess in groups[group_idx]['sessions']:
+        if curr_sess['scheduled']: continue
+        # Check if a session of that course has not been scheduled this day
+        course_id = curr_sess['course']
+        if is_course_session_scheduled(groups, group_idx, day, course_id): continue
+        # Find professor of current course
+        course_idx = get_course_idx(courses, course_id)
+        group_id = groups[group_idx]['id']
+        professor_id = get_course_professor(courses, course_idx, group_id)
+        # Check if professor is avaliable
+        professor_idx = get_professor_idx(professors, professor_id)
+        session_length = curr_sess['length']
+        if not is_professor_avaliable(professors, professor_idx, day, hour, session_length): continue
+        # If all is OK, generate heuristic metric...
+        metric = gen_heuristic(professors, groups, professor_idx, group_idx, day, hour)
+        # ...and then insert new option so options are in descendant order according to heuristic metric
+        option_idx = find_new_option_insert_index(options, metric)
+        options.insert(option_idx, {'session': curr_sess['id'], 'metric': metric})
+    # Return options
     return options
 
 
@@ -209,17 +263,17 @@ def unmark(professors, courses, groups, group, day, hour, session):
     mark_group_as_unsolved(groups, group)
 
 def solve(professors, courses, groups, config):
-    def schedule_session(group, day, hour):
+    def schedule_session(group_idx, day, hour):
         '''Tries recursively to schedule a session. Return True if a solution has been found.
         Return False to trigger backtracking'''
 
-        options = generate_group_options(group, day, hour)
+        options = generate_group_options(professors, courses, groups, group_idx, day, hour)
         # Change hours if sessions are not avaliable at that time
         while len(options)==0:
             day, hour = get_next_available_time(group, day, hour)
             # If next time available is None, you cannot change hours and got to trigger backtracking
             if day==None or hour==None: return False
-            options = generate_group_options(group, day, hour)
+            options = generate_group_options(professors, courses, groups, group_idx, day, hour)
         # Try to generate a solution by scheduling any of the sessions
         for opt in options:
             session = opt.session
