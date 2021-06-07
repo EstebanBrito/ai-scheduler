@@ -10,7 +10,7 @@ WEDNESDAY = 2
 THURSDAY = 3
 FRIDAY = 4
 SATURDAY = 5
-SUNDAY = 1
+SUNDAY = 6
 
 # FUNCTIONS
 
@@ -68,13 +68,14 @@ def get_next_available_time(config, groups, group_idx, day, hour):
     '''Get next time avaliable for a group to schedule a session, given that
     this group was trying to schedule a session at he specified day and hour'''
     # Calc. rem. hrs. of class for this group if we skip one hour
-    top_hour = groups[group_idx]['hour_range'][day][1]
+    top_hour = groups[group_idx]['hour_range'][1]
     rem_hours = top_hour - (hour + 1)
+    if rem_hours < 0: rem_hours = 0 # Code loops when rem_hours is negative
     # If rem. hrs are enough to schedule the min. hrs. of class needed that day for that group...
     if rem_hours < calc_rem_min_daily_class_hours(groups, group_idx, day): return None, None
     # ...and both rem. hrs. are enough to schedule a session (i.e. 2 hours)
     # and group's idle hours are acceptable (i.e. < max_daily_idle_hours)...
-    idle_hours = calc_idle_hours(groups, group_idx, day)
+    idle_hours = calc_idle_hours(groups, group_idx, day, hour)
     if rem_hours >= 2 and idle_hours <= config['max_daily_idle_hours']:
         # ...try to schedule session next hour
         return day, hour + 1
@@ -125,7 +126,6 @@ def get_course_professor(courses, course_idx, group_id):
         if curr_classroom['group'] == group_id:
             # Return found professor
             return curr_classroom['professor']
-        break
     return None # For consistency
 
 def is_course_session_scheduled(groups, group_idx, day, course_id):
@@ -231,7 +231,7 @@ def recalc_min_daily_class_hours(groups, group_idx, day):
     # Calc. req. daily class hours for the remaining days of the week
     rem_days = range(day+1, FRIDAY+1)
     no_rem_days = len(rem_days)
-    no_rem_work_hours = groups[groups]['weekly_class_hours'] - worked_hours_week
+    no_rem_work_hours = groups[group_idx]['weekly_class_hours'] - worked_hours_week
     min_daily_hours = no_rem_work_hours // no_rem_days
     rem_min_daily_hours = no_rem_work_hours % no_rem_days
     # Set req. daily class hours for each remaining day of the week
@@ -257,7 +257,7 @@ def delete_scheduled_session(groups, group_idx, day, session_id):
     idx = None
     # Find session idx, then delete that element from scheduled sessions
     for curr_idx, curr_sess in enumerate(groups[group_idx]['schedule'][day]):
-        if curr_sess['id'] == session_id: idx = curr_idx
+        if curr_sess['session'] == session_id: idx = curr_idx
     groups[group_idx]['schedule'][day].pop(idx)
 
 def mark(professors, courses, groups, group_idx, day, hour, session_idx):
@@ -300,7 +300,7 @@ def unmark(professors, courses, groups, group_idx, day, hour, session_idx, last_
     # Change groups's min. daily class hours (IMPORTANT TO GO AFTER CHANGING GROUP'S CLASS HOURS)
     restitute_min_daily_class_hours(groups, group_idx, day, hour, sess['length'])
     # Change professor's avaliable hours
-    course_idx = get_course_idx(courses, sess['id'])
+    course_idx = get_course_idx(courses, sess['course'])
     group_id = groups[group_idx]['id']
     professor_id = get_course_professor(courses, course_idx, group_id)
     professor_idx = get_professor_idx(professors, professor_id)
@@ -314,28 +314,38 @@ def solve(professors, courses, groups, config):
     def schedule_session(group_idx, day, hour):
         '''Tries recursively to schedule a session. Return True if a solution has been found.
         Return False to trigger backtracking'''
+        print(f'CURRENTLY IN GROUP_IDX={group_idx} W/ {day}/{hour}')
         options = generate_group_options(professors, courses, groups, group_idx, day, hour)
         # Change hours if sessions are not avaliable at that time
         while len(options)==0:
+            print(f'Gen. new opts. for idx {group_idx} w {day}/{hour}')
+            # print(groups[group_idx]['current_time'], groups[group_idx]['schedule'])
             day, hour = get_next_available_time(config, groups, group_idx, day, hour)
             # If next time available is None, you cannot change hours and got to trigger backtracking
-            if day==None or hour==None: return False
+            if day==None or hour==None:
+                print('Backtracking cuz unable to jump')
+                return False
             options = generate_group_options(professors, courses, groups, group_idx, day, hour)
         # Save prev. info
         last_day, last_hour = groups[group_idx]['current_time']
         # Try to generate a solution by scheduling any of the sessions
         for opt in options:
             session_id = opt['session']
-            session_idx = get_session_idx(groups, group_idx, session_idx)
+            session_idx = get_session_idx(groups, group_idx, session_id)
             mark(professors, courses, groups, group_idx, day, hour, session_idx)
             next_group_idx, next_day, next_hour = get_next_group(groups)
             # If all groups have been scheduled, a sol. has been found. Start backpropagating the flag.
-            if next_group_idx==None: return True #
+            if next_group_idx==None:
+                print('Solution')
+                return True
              # Try scheduling next group and if sol. has been found, keep backpropagating the flag
             if schedule_session(next_group_idx, next_day, next_hour):
+                print('Solution')
                 return True
+            # If scheduling failed, try with scheudling other session
             unmark(professors, courses, groups, group_idx, day, hour, session_idx, last_day, last_hour)
         # If no option provide a solution, trigger backtracking
+        print('Backtracking due to no option being good')
         return False
     return schedule_session
 
