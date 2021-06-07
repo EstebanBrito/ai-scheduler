@@ -329,10 +329,13 @@ def solve(professors, courses, groups, config):
             session_idx = get_session_idx(groups, group_idx, session_idx)
             mark(professors, courses, groups, group_idx, day, hour, session_idx)
             next_group_idx, next_day, next_hour = get_next_group(groups)
-            if next_group_idx==None: return True # All groups have been scheduled, a solution has been found
-            if schedule_session(next_group_idx, next_day, next_hour): return True # Try scheduling next group
+            # If all groups have been scheduled, a sol. has been found. Start backpropagating the flag.
+            if next_group_idx==None: return True #
+             # Try scheduling next group and if sol. has been found, keep backpropagating the flag
+            if schedule_session(next_group_idx, next_day, next_hour):
+                return True
             unmark(professors, courses, groups, group_idx, day, hour, session_idx, last_day, last_hour)
-        # If options did not provide solution, trigger backtracking
+        # If no option provide a solution, trigger backtracking
         return False
     return schedule_session
 
