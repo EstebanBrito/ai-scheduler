@@ -5,26 +5,25 @@ from data_requests import req_data
 import traceback
 
 def gen_schedule(data):
-    professors, courses, groups, config = None, None, None, None
     try:
         # Preprocess the data
         professors, courses, groups, config = generate_ds(data)
-        # see_ds_status(professors, courses, groups, config)
         # Initialize the closure function
         schedule_session = solve(professors, courses, groups, config)
         # Try to solve and return answer
         solution = schedule_session(0, 0, groups[0]['hour_range'][0])
-        if solution:
-            # see_ds_status(professors, courses, groups, config)
-            return format_solution(courses, groups)
-        else: return None
     except Exception as err:
         print('Something has failed inside the scheduling algorithm')
-        print(err)
-        traceback.print_exc()
-        # see_ds_status(professors, courses, groups, config)
+        # print(err)
+        # traceback.print_exc()
         return None
-
+    try:
+        if solution: return format_solution(courses, groups)
+        else: return None
+    except Exception as err:
+        print('Solution found, but reformatting failed')
+        return None
+    
 def format_solution(courses, groups):
     new_schedule = [[],[],[],[],[]]
     days = range(0, 5)
@@ -46,7 +45,9 @@ def format_solution(courses, groups):
     return new_schedule
 
 if __name__ == '__main__':
+    # data is body of request, containing fields like professors, courses and groups
     data = req_data()
+    # res should be attached to response body and sent to client
     res = gen_schedule(data)
     if res:
         print('Solved')
