@@ -200,18 +200,20 @@ def remove_professor_available_hours(professors, professor_idx, day, hour, lengt
         if class_hour in professor['av_workhours'][day]:
             professor['av_workhours'][day].remove(class_hour)
 
-def restitute_professor_available_hours(professors, professor, day, hour, length):
-    hours = gen_array_from_range(hour, hour+length)
+def restitute_professor_available_hours(professors, professor_idx, day, hour, length):
+    '''Restitutes hours to professor's avaliable time'''
+    professor = professors[professor_idx]
     # Find index where to restitute avaliable hours
-    hour_idx = 0
-    for av_hour, idx in enumerate(professor[professor]['av_workhours'][day]):
-        if av_hour > hours[0]:
-            hour_idx = idx
+    hour_idx = 0 # Default: at the beginning
+    for curr_idx, curr_av_hour in enumerate(professor['av_workhours'][day]):
+        if hour < curr_av_hour:
+            hour_idx = curr_idx
             break
-    # Restitute hours to the av. hours array
-    for hour in hours[::-1]:
-        if not hour in professor[professor]['av_workhours'][day]:
-            professor[professor]['av_workhours'][day].insert(hour_idx, hour)
+    # Restitute hours to the av. hours array (starting by the last hour)
+    class_hours = range(hour, hour + length)
+    for class_hour in class_hours[::-1]:
+        if not class_hour in professor['av_workhours'][day]:
+            professor['av_workhours'][day].insert(hour_idx, class_hour)
 
 def recalc_min_daily_class_hours(groups, group_idx, day):
     '''Changes min. daily class hours required for that group in the rest of the week'''
@@ -241,15 +243,27 @@ def remove_min_daily_class_hours(groups, group_idx, day):
     if groups[group_idx]['class_hours'][day] > groups[group_idx]['min_daily_class_hours'][day]:
         recalc_min_daily_class_hours(groups, group_idx, day)
 
-def restitute_min_daily_class_hours(groups, group, day, hour, length):
-    if groups[group]['class_hours'][day] + length > groups[group]['min_daily_class_hours'][day]:
-        recalc_min_daily_class_hours(groups, group, day)
+def restitute_min_daily_class_hours(groups, group_idx, day, hour, length):
+    '''Restitutes required class hours for the remaining days of the week'''
+    # Recalc. min. daily class hrs. for next days if today's min. daily class hrs. were exceeded
+    if groups[group_idx]['class_hours'][day] + length > groups[group_idx]['min_daily_class_hours'][day]:
+        recalc_min_daily_class_hours(groups, group_idx, day)
+
+def delete_scheduled_session(groups, group_idx, day, session_id):
+    '''Deletes a session from group's schedule'''
+    idx = None
+    # Find session idx, then delete that element from scheduled sessions
+    for curr_idx, curr_sess in enumerate(groups[group_idx]['schedule'][day]):
+        if curr_sess['id'] == session_id: idx = curr_idx
+    groups[group_idx]['schedule'][day].pop(idx)
 
 def mark(professors, courses, groups, group_idx, day, hour, session_idx):
+    '''Schedules a session for that groups  with those parameters, and changes 
+    group's info so the algorithm can keep working'''
     # Get session info
     sess = groups[group_idx]['sessions'][session_idx]
     # Schedule session
-    sess_id, sess_length, sess_course_id = sess['length'], sess['length'], sess['course']
+    sess_id, sess_length, sess_course_id = sess['id'], sess['length'], sess['course']
     new_sess = {'session': sess_id, 'hour_range': [hour, hour + sess_length], 'course': sess_course_id}
     groups[group_idx]['schedule'][day].append(new_sess)
     groups[group_idx]['sessions'][session_idx]['scheduled'] = True
@@ -268,23 +282,28 @@ def mark(professors, courses, groups, group_idx, day, hour, session_idx):
     # Verify if group's scheduling is complete
     if not has_group_remaining_sessions(groups, group_idx): groups[group_idx]['solved'] = True
 
-def unmark(professors, courses, groups, group, day, hour, session):
-    length = groups[group]['sessions'][session]['length']
+def unmark(professors, courses, groups, group_idx, day, hour, session_idx, last_day, last_hour):
+    '''Unschedules a session (with the provided parameters) for that groups, and changes 
+    group's info so the algorithm can keep working'''
+    # Get session info
+    sess = groups[group_idx]['sessions'][session_idx]
     # Delete session scheduled
-    del groups[group]['schedule'][day][session]
-    groups[group]['sessions'][session]['scheduled'] = False
+    delete_scheduled_session(groups, group_idx, day, sess['id'])
+    groups[group_idx]['sessions'][session_idx]['scheduled'] = False
     # Change the group's current time
-    groups[group]['current_hour'] = [day, hour]
+    groups[group_idx]['current_time'] = [last_day, last_hour]
     # Change group's class hours
-    groups[group]['class_hours'][day] -= length
+    groups[group_idx]['class_hours'][day] -= sess['length']
     # Change groups's min. daily class hours (IMPORTANT TO GO AFTER CHANGING GROUP'S CLASS HOURS)
-    restitute_min_daily_class_hours(groups, group, day, hour, length)
+    restitute_min_daily_class_hours(groups, group_idx, day, hour, sess['length'])
     # Change professor's avaliable hours
-    course = get_session_course(groups, group, session)
-    professor = get_course_professor(courses, course, group)
-    restitute_professor_available_hours(professors, professor, day, hour, length)
+    course_idx = get_course_idx(courses, sess['id'])
+    group_id = groups[group_idx]['id']
+    professor_id = get_course_professor(courses, course_idx, group_id)
+    professor_idx = get_professor_idx(professors, professor_id)
+    restitute_professor_available_hours(professors, professor_idx, day, hour, sess['length'])
     # Scheduling for the group is not complete
-    groups[group_idx]['solved'] = True
+    groups[group_idx]['solved'] = False
 
 # Main functions
 
@@ -299,6 +318,8 @@ def solve(professors, courses, groups, config):
             # If next time available is None, you cannot change hours and got to trigger backtracking
             if day==None or hour==None: return False
             options = generate_group_options(professors, courses, groups, group_idx, day, hour)
+        # Save prev. info
+        last_day, last_hour = groups[group_idx]['current_time']
         # Try to generate a solution by scheduling any of the sessions
         for opt in options:
             session_id = opt['session']
@@ -307,7 +328,7 @@ def solve(professors, courses, groups, config):
             next_group_idx, next_day, next_hour = get_next_group(groups)
             if next_group_idx==None: return True # All groups have been scheduled, a solution has been found
             if schedule_session(next_group_idx, next_day, next_hour): return True # Try scheduling next group
-            unmark(professors, courses, groups, group_idx, day, hour, session_id)
+            unmark(professors, courses, groups, group_idx, day, hour, session_idx, last_day, last_hour)
         # If options did not provide solution, trigger backtracking
         return False
     return schedule_session
