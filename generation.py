@@ -56,10 +56,7 @@ def gen_group_sessions(group, group_courses):
             curr_session_id += 1
 
 def gen_group_current_time(group):
-    group['current_time'] = {
-        'day': 0,
-        'hour': group['hour_range'][0]
-    }
+    group['current_time'] = [0, group['hour_range'][0]] # MONDAY, first group's hour
 
 def gen_group_min_daily_class_hours(group):
     group['min_daily_class_hours'] = [0,0,0,0,0]

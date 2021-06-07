@@ -32,8 +32,15 @@ def get_group_idx(groups, group_id):
         if curr_group['id'] == group_id: return curr_idx
     return None
 
-def get_session_course(groups, group_idx, session):
-    return groups[group_idx]['sessions'][session]['course']
+def get_session_idx(groups, group_idx, session_id):
+    '''Given its id, return index of session within group's sessions data structure'''
+    for curr_idx, curr_sess in enumerate(groups[group_idx]['sessions']):
+        if curr_sess['id'] == session_id: return curr_idx
+    return None
+
+def get_session_course(groups, group_idx, session_idx):
+    '''Return session's course id, given group index and session index'''
+    return groups[group_idx]['sessions'][session_idx]['course']
 
 # get_next_avaliable_time() auxiliary functions
 
@@ -168,7 +175,7 @@ def get_next_group(groups):
     for group_name, group in groups.items():
         if group['solved']: continue # Ignore solved groups
         # Calc time and compare with current most delayed group
-        day, hour = group['current_time']['day'], group['current_time']['hour']
+        day, hour = group['current_time'][0], group['current_time'][1]
         hour_of_week = gen_hour_of_week(day, hour)
         if hour_of_week < next_group_hour_of_week:
             next_group = group_name
@@ -179,22 +186,19 @@ def get_next_group(groups):
 
 # mark() and unmark() auxiliary functions
 
-def has_group_remaining_sessions(groups, group):
-    for sess_name, sess in groups[group]['sessions'].items():
-        if sess['scheduled']: return True
+def has_group_remaining_sessions(groups, group_idx):
+    '''Return whether the group has scheduled all its class sessions or not'''
+    for curr_sess in groups[group_idx]['sessions']:
+        if curr_sess['scheduled']: return True
     return False
 
-def mark_group_as_solved(groups, group):
-    groups[group]['solved'] = True
-
-def mark_group_as_unsolved(groups, group):
-    groups[group]['solved'] = False
-
-def remove_professor_available_hours(professors, professor, day, hour, length):
-    hours = gen_array_from_range(hour, hour+length)
-    for hour in hours:
-        if hour in professor[professor]['av_workhours'][day]:
-            professor[professor]['av_workhours'][day].remove(hour)
+def remove_professor_available_hours(professors, professor_idx, day, hour, length):
+    '''Remove hours from professor's avaliable time'''
+    professor = professors[professor_idx]
+    class_hours = range(hour, hour + length)
+    for class_hour in class_hours:
+        if class_hour in professor['av_workhours'][day]:
+            professor['av_workhours'][day].remove(class_hour)
 
 def restitute_professor_available_hours(professors, professor, day, hour, length):
     hours = gen_array_from_range(hour, hour+length)
@@ -209,52 +213,60 @@ def restitute_professor_available_hours(professors, professor, day, hour, length
         if not hour in professor[professor]['av_workhours'][day]:
             professor[professor]['av_workhours'][day].insert(hour_idx, hour)
 
-def recalc_min_daily_class_hours(groups, group, day):
+def recalc_min_daily_class_hours(groups, group_idx, day):
+    '''Changes min. daily class hours required for that group in the rest of the week'''
     if day >= FRIDAY: return # No need to recalc. if today is the last day of the week (Friday)
     # Calc. worked hours (take req. hours if group have not met req. hours in a day)
-    hours = 0
-    prev_days = range(0, day+1)
+    worked_hours_week = 0
+    prev_days = range(0, day + 1)
     for curr_day in prev_days:
-        worked_hours = groups[group]['class_hours'][curr_day]
-        req_hours = groups[group]['min_daily_class_hours'][curr_day]
-        hours += max([worked_hours, req_hours])
-    # Calc. req. daily class hours for the rest of the days of the week
+        worked_hours_day = groups[group_idx]['class_hours'][curr_day]
+        req_hours_day = groups[group_idx]['min_daily_class_hours'][curr_day]
+        worked_hours_week += max([worked_hours_day, req_hours_day])
+    # Calc. req. daily class hours for the remaining days of the week
     rem_days = range(day+1, FRIDAY+1)
     no_rem_days = len(rem_days)
-    min_daily_hours = (groups[groups]['weekly_class_hours'] - worked_hours) // no_rem_days
-    rem_min_daily_hours = (groups[groups]['weekly_class_hours'] - worked_hours) % no_rem_days
+    no_rem_work_hours = groups[groups]['weekly_class_hours'] - worked_hours_week
+    min_daily_hours = no_rem_work_hours // no_rem_days
+    rem_min_daily_hours = no_rem_work_hours % no_rem_days
+    # Set req. daily class hours for each remaining day of the week
     for curr_day in rem_days:
-        groups[group]['min_daily_class_hours'][day] = min_daily_hours
-    # Addendum: Can't have point something hours, so add module to tomorrow
-    groups[group]['min_daily_class_hours'][day+1] += rem_min_daily_hours
+        groups[group_idx]['min_daily_class_hours'][curr_day] = min_daily_hours
+    # Can't have point something hours, so add remainder to tomorrow
+    groups[group_idx]['min_daily_class_hours'][day + 1] += rem_min_daily_hours
 
-def remove_min_daily_class_hours(groups, group, day, length):
-    # Substract session length from daily hours of class needed by that group that day
-    if groups[group]['class_hours'][day] > groups[group]['min_daily_class_hours'][day]:
-        recalc_min_daily_class_hours(groups, group, day)
+def remove_min_daily_class_hours(groups, group_idx, day):
+    '''Removes required class hours for the remaining days of the week'''
+    # Recalc. min. daily class hrs. for next days if today's min. daily class hrs. have been exceeded
+    if groups[group_idx]['class_hours'][day] > groups[group_idx]['min_daily_class_hours'][day]:
+        recalc_min_daily_class_hours(groups, group_idx, day)
 
 def restitute_min_daily_class_hours(groups, group, day, hour, length):
     if groups[group]['class_hours'][day] + length > groups[group]['min_daily_class_hours'][day]:
         recalc_min_daily_class_hours(groups, group, day)
 
-def mark(professors, courses, groups, group, day, hour, session):
-    length = groups[group]['sessions'][session]['length']
-    hours = gen_array_from_range(hour, hour+length)
+def mark(professors, courses, groups, group_idx, day, hour, session_idx):
+    # Get session info
+    sess = groups[group_idx]['sessions'][session_idx]
     # Schedule session
-    groups[group]['schedule'][day][session] = hours
-    groups[group]['sessions'][session]['scheduled'] = True
+    sess_id, sess_length, sess_course_id = sess['length'], sess['length'], sess['course']
+    new_sess = {'session': sess_id, 'hour_range': [hour, hour + sess_length], 'course': sess_course_id}
+    groups[group_idx]['schedule'][day].append(new_sess)
+    groups[group_idx]['sessions'][session_idx]['scheduled'] = True
     # Change group's current time
-    groups[group]['current_hour'] = [day, hour+length]
+    groups[group_idx]['current_time'] = [day, hour + sess_length]
     # Change group's class hours
-    groups[group]['class_hours'][day] += length
+    groups[group_idx]['class_hours'][day] += sess_length
     # Change group's min. daily class hours (IMPORTANT TO GO AFTER CHANGING GROUP'S CLASS HOURS)
-    remove_min_daily_class_hours(groups, group, day, length)
+    remove_min_daily_class_hours(groups, group_idx, day)
     # Change professor's avaliable hours
-    course = get_session_course(groups, group, session)
-    professor = get_course_professor(courses, course, group)
-    remove_professor_available_hours(professors, professor, day, hour, length)
+    course_idx = get_course_idx(courses, sess_course_id)
+    group_id = groups[group_idx]['id']
+    professor_id = get_course_professor(courses, course_idx, group_id)
+    professor_idx = get_professor_idx(professors, professor_id)
+    remove_professor_available_hours(professors, professor_idx, day, hour, sess_length)
     # Verify if group's scheduling is complete
-    if not has_group_remaining_sessions(groups, group): mark_group_as_solved(groups, group)
+    if not has_group_remaining_sessions(groups, group_idx): groups[group_idx]['solved'] = True
 
 def unmark(professors, courses, groups, group, day, hour, session):
     length = groups[group]['sessions'][session]['length']
@@ -272,7 +284,7 @@ def unmark(professors, courses, groups, group, day, hour, session):
     professor = get_course_professor(courses, course, group)
     restitute_professor_available_hours(professors, professor, day, hour, length)
     # Scheduling for the group is not complete
-    mark_group_as_unsolved(groups, group)
+    groups[group_idx]['solved'] = True
 
 # Main functions
 
@@ -290,7 +302,8 @@ def solve(professors, courses, groups, config):
         # Try to generate a solution by scheduling any of the sessions
         for opt in options:
             session_id = opt['session']
-            mark(professors, courses, groups, group_idx, day, hour, session_id)
+            session_idx = get_session_idx(groups, group_idx, session_idx)
+            mark(professors, courses, groups, group_idx, day, hour, session_idx)
             next_group_idx, next_day, next_hour = get_next_group(groups)
             if next_group_idx==None: return True # All groups have been scheduled, a solution has been found
             if schedule_session(next_group_idx, next_day, next_hour): return True # Try scheduling next group
