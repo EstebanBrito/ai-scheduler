@@ -192,7 +192,7 @@ def get_next_group(groups):
 def has_group_remaining_sessions(groups, group_idx):
     '''Return whether the group has scheduled all its class sessions or not'''
     for curr_sess in groups[group_idx]['sessions']:
-        if curr_sess['scheduled']: return True
+        if not curr_sess['scheduled']: return True
     return False
 
 def remove_professor_available_hours(professors, professor_idx, day, hour, length):
@@ -314,17 +314,16 @@ def solve(professors, courses, groups, config):
     def schedule_session(group_idx, day, hour):
         '''Tries recursively to schedule a session. Return True if a solution has been found.
         Return False to trigger backtracking'''
-        print(f'CURRENTLY IN GROUP_IDX={group_idx} W/ {day}/{hour}')
+        # print(f'CURRENTLY IN GROUP_IDX={group_idx} W/ {day}/{hour}')
         options = generate_group_options(professors, courses, groups, group_idx, day, hour)
         # Change hours if sessions are not avaliable at that time
         while len(options)==0:
-            print(f'Gen. new opts. for idx {group_idx} w {day}/{hour}')
-            # print(groups[group_idx]['current_time'], groups[group_idx]['schedule'])
             day, hour = get_next_available_time(config, groups, group_idx, day, hour)
             # If next time available is None, you cannot change hours and got to trigger backtracking
             if day==None or hour==None:
-                print('Backtracking cuz unable to jump')
+                # print('Backtracking cuz unable to jump')
                 return False
+            # print(f'Gen. new opts. for idx {group_idx} at {day}/{hour}')
             options = generate_group_options(professors, courses, groups, group_idx, day, hour)
         # Save prev. info
         last_day, last_hour = groups[group_idx]['current_time']
@@ -336,16 +335,16 @@ def solve(professors, courses, groups, config):
             next_group_idx, next_day, next_hour = get_next_group(groups)
             # If all groups have been scheduled, a sol. has been found. Start backpropagating the flag.
             if next_group_idx==None:
-                print('Solution')
+                # print('Solution')
                 return True
              # Try scheduling next group and if sol. has been found, keep backpropagating the flag
             if schedule_session(next_group_idx, next_day, next_hour):
-                print('Solution')
+                # print('Solution')
                 return True
             # If scheduling failed, try with scheudling other session
             unmark(professors, courses, groups, group_idx, day, hour, session_idx, last_day, last_hour)
         # If no option provide a solution, trigger backtracking
-        print('Backtracking due to no option being good')
+        # print('Backtracking due to no option being good')
         return False
     return schedule_session
 
