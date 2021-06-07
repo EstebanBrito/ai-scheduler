@@ -44,6 +44,12 @@ def get_session_course(groups, group_idx, session_idx):
     '''Return session's course id, given group index and session index'''
     return groups[group_idx]['sessions'][session_idx]['course']
 
+def get_classroom_id(courses, course_idx, group_id):
+    '''Returns classroom´s id associated with that group and course'''
+    for curr_clsrm in courses[course_idx]['classrooms']:
+        if curr_clsrm['group'] == group_id: return curr_clsrm['id']
+    return None
+
 # get_next_avaliable_time() auxiliary functions
 
 def calc_rem_min_daily_class_hours(groups, group_idx, day):
