@@ -5,9 +5,11 @@ def generate_ds(data):
     professors = data['professors']
     courses = data['courses']
     groups = data['groups']
+    # Default config values
     config = None
     if 'config' in data: config = data['config']
-    else: config = { 'school_workhours': [7,20], 'max_daily_idle_hours': 2 }
+    else: config = { 'school_workhours': [7,20], 'max_daily_idle_hours': 1 }
+    # Validate data incoming data (TODO)
     # Generate aditional data
     config_professors(professors)
     config_groups(courses, groups)

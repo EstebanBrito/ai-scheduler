@@ -18,3 +18,4 @@ def see_ds_status(professors, courses, groups, config):
     print(groups)
     print('CONFIG')
     print(config)
+    print()
