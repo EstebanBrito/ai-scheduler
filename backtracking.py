@@ -9,6 +9,8 @@ TUESDAY = 1
 WEDNESDAY = 2
 THURSDAY = 3
 FRIDAY = 4
+SATURDAY = 5
+SUNDAY = 1
 
 # FUNCTIONS
 
@@ -159,6 +161,7 @@ def generate_group_options(professors, courses, groups, group_idx, day, hour):
     # Return options
     return options
 
+# get_next_group() auxiliary functions
 
 def gen_hour_of_week(day, hour):
     return day*24 + hour
@@ -166,23 +169,23 @@ def gen_hour_of_week(day, hour):
 def get_next_group(groups):
     '''Given a collection of groups, find the most delayed one
     which still has sessions to schedule. Returns that group's
-    name and the day and hour its next session should be scheduled'''
-    next_group = None
-    next_group_day = 7
+    index and the day and hour its next session should be scheduled'''
+    next_group_idx = None # Default value. If it does not change, a solution has been found
+    next_group_day = SUNDAY + 1
     next_group_hour = 0
-    next_group_hour_of_week = gen_hour_of_week(7, 0)
+    next_group_hour_of_week = gen_hour_of_week(SUNDAY + 1, 0)
     # For each group...
-    for group_name, group in groups.items():
-        if group['solved']: continue # Ignore solved groups
-        # Calc time and compare with current most delayed group
-        day, hour = group['current_time'][0], group['current_time'][1]
-        hour_of_week = gen_hour_of_week(day, hour)
-        if hour_of_week < next_group_hour_of_week:
-            next_group = group_name
-            next_group_day = day
-            next_group_hour = hour
-            next_group_hour_of_week = hour_of_week
-    return next_group, next_group_day, next_group_hour
+    for curr_group_idx, curr_group in enumerate(groups):
+        if curr_group['solved']: continue # ...(ignoring solved groups)...
+        # ...calc. time and compare with current most delayed group
+        curr_day, curr_hour = curr_group['current_time'][0], curr_group['current_time'][1]
+        curr_hour_of_week = gen_hour_of_week(curr_day, curr_hour)
+        if curr_hour_of_week < next_group_hour_of_week:
+            next_group_idx = curr_group_idx
+            next_group_day = curr_day
+            next_group_hour = curr_hour
+            next_group_hour_of_week = curr_hour_of_week
+    return next_group_idx, next_group_day, next_group_hour
 
 # mark() and unmark() auxiliary functions
 
